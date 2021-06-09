@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "shared.h"
+#include "string.h"
 
 char* get_flroot(void) {
   char bashrc_path[MAX_PATH];
@@ -13,18 +14,14 @@ char* get_flroot(void) {
     ABORT("Error loading ~/.bashrc");
 
   char line[MAX_LINE];
+  char* flroot = NULL;
   for (;;) {
     if (fgets(line, MAX_LINE, bashrc) == NULL)
-      ABORT("unable to find FLROOT in ~/.bashrc");
+      break;
 
-    if (strncmp(line, "FLROOT=\"", 8) != 0)
-      continue;
-
-    char* flroot = calloc(1, MAX_PATH);
-    for (char *lp = &line[8], *fp = flroot; *lp != '"'; fp++, lp++) {
-      *fp = *lp;
-    }
-    return flroot;
+    flroot = line_extract(line, "FLROOT=\"", '"');
+    if (flroot)
+      return flroot;
   }
   ABORT("unable to find FLROOT in ~/.bashrc");
 }

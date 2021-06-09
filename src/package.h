@@ -9,17 +9,17 @@ typedef struct Package {
   char* abspath;
   char* relpath;
   int num_deps;
-  char deps[MAX_PKGS];
+  struct Package** deps;
   int hash;
 } Package;
 
 typedef struct Packages {
   int num_pkgs;
-  Package pkgs[MAX_PKGS];
+  Package** map;
 } Packages;
 
 void print_package(Package* pkg);
 void print_packages(Packages* pkgs);
-Packages* load_packages(char* root_dir);
+Packages* load_packages(char* root_path);
 
 #endif
