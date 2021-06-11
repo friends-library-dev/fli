@@ -9,16 +9,16 @@
 #include "shared.h"
 #include "string.h"
 
-typedef struct Flags {
+typedef struct flags_t {
   bool print;
-} Flags;
+} flags_t;
 
-Flags parse_argv(int argc, char** argv);
-void symlink_package(Package* pkg);
+flags_t parse_argv(int argc, char** argv);
+void symlink_package(pkg_t* pkg);
 
 int main(int argc, char** argv) {
-  Flags flags = parse_argv(argc, argv);
-  Packages* packages = load_packages(get_flroot());
+  flags_t flags = parse_argv(argc, argv);
+  pkgs_t* packages = load_packages(get_flroot());
   if (!packages)
     ABORT("Error loading packages from FLROOT");
 
@@ -34,13 +34,13 @@ int main(int argc, char** argv) {
   exit(EXIT_SUCCESS);
 }
 
-void symlink_package(Package* pkg) {
+void symlink_package(pkg_t* pkg) {
   if (str_is(pkg->name, "@friends-library/native"))
     return;
 
   printf(C_GREY "Symlinking deps for package: %s%s\n", C_GREEN, pkg->name);
   for (int i = 0; i < pkg->num_deps; i++) {
-    Package* dep = pkg->deps[i];
+    pkg_t* dep = pkg->deps[i];
     char* dep_path = path_joinv(pkg->abspath, "node_modules", dep->name, NULL);
 
     // step 1, rename any existing, non-symlink npm-install-ed dir
@@ -62,8 +62,8 @@ void symlink_package(Package* pkg) {
   }
 }
 
-Flags parse_argv(int argc, char** argv) {
-  Flags flags = {0};
+flags_t parse_argv(int argc, char** argv) {
+  flags_t flags = {0};
   for (int i = 1; i < argc; i++) {
     if (str_is(argv[i], "--print") || str_is(argv[i], "-p")) {
       flags.print = true;

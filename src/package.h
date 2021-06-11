@@ -5,7 +5,7 @@
 
 #define MAX_PKGS 50
 
-typedef struct Package {
+typedef struct pkg_t {
   char* name;
   char* version;
   char* abspath;
@@ -13,17 +13,17 @@ typedef struct Package {
   int num_deps;
   bool is_app;
   bool is_lib;
-  struct Package** deps;
+  struct pkg_t** deps;
   int hash;
-} Package;
+} pkg_t;
 
-typedef struct Packages {
+typedef struct pkgs_t {
   int count;
-  Package** map;
-} Packages;
+  pkg_t** map;
+} pkgs_t;
 
-void print_package(Package* pkg);
-void print_packages(Packages* pkgs);
-Packages* load_packages(char* root_path);
+void print_package(pkg_t* pkg);
+void print_packages(pkgs_t* pkgs);
+pkgs_t* load_packages(char* root_path);
 
 #endif
