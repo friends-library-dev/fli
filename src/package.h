@@ -1,6 +1,8 @@
 #ifndef __PACKAGE_H__
 #define __PACKAGE_H__
 
+#include <stdbool.h>
+
 #define MAX_PKGS 50
 
 typedef struct Package {
@@ -9,12 +11,14 @@ typedef struct Package {
   char* abspath;
   char* relpath;
   int num_deps;
+  bool is_app;
+  bool is_lib;
   struct Package** deps;
   int hash;
 } Package;
 
 typedef struct Packages {
-  int num_pkgs;
+  int count;
   Package** map;
 } Packages;
 

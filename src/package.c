@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include "shared.h"
 #include "string.h"
 
@@ -14,7 +13,6 @@ typedef struct Deps {
 } Deps;
 
 static bool is_dot_path(const char* path);
-static bool is_dir(const char* path);
 static void examine_subdir(
   char* root_path, char* subdir, Packages* pkgs, Deps* deps);
 static Package* make_package(
@@ -24,14 +22,17 @@ Packages* load_packages(char* root_path) {
   Deps deps = {0};
   Packages* pkgs = calloc(1, sizeof(Packages));
   pkgs->map = calloc(MAX_PKGS, sizeof(Package*));
+
+  // first pass over all libs
   examine_subdir(root_path, "libs", pkgs, &deps);
   examine_subdir(root_path, "apps", pkgs, &deps);
 
-  for (int hash = 0; hash < pkgs->num_pkgs; hash++) {
+  // now that we have seen all libs, fill in references to deps
+  for (int hash = 0; hash < pkgs->count; hash++) {
     Package* pkg = pkgs->map[hash];
     for (int i = 0; i < pkg->num_deps; i++) {
       char* pkg_name = deps.pkg_deps_names[hash][i];
-      for (int dep_hash = 0; dep_hash < pkgs->num_pkgs; dep_hash++) {
+      for (int dep_hash = 0; dep_hash < pkgs->count; dep_hash++) {
         if (strcmp(pkg_name, deps.hash_to_name[dep_hash]) == 0) {
           pkg->deps[i] = pkgs->map[dep_hash];
         }
@@ -43,21 +44,21 @@ Packages* load_packages(char* root_path) {
 
 static void examine_subdir(
   char* root_path, char* subdir, Packages* pkgs, Deps* deps) {
-  char* path = path_append(root_path, subdir);
+  char* path = path_join(root_path, subdir);
   DIR* dir = opendir(path);
   if (!dir)
-    ABORT("unable to open `libs/` or `app/` dir");
+    ABORT("unable to open `%s/` subdir", subdir);
 
   struct dirent* entry;
   while ((entry = readdir(dir)) != NULL) {
-    char* abspath = path_append(path, entry->d_name);
-    if (!is_dot_path(entry->d_name) && is_dir(path)) {
-      int hash = pkgs->num_pkgs;
+    char* abspath = path_join(path, entry->d_name);
+    if (!is_dot_path(entry->d_name) && is_dir(abspath)) {
+      int hash = pkgs->count;
       Package* pkg = make_package(entry->d_name, abspath, subdir, hash, deps);
       if (pkg != NULL) {
         deps->hash_to_name[hash] = pkg->name;
         pkgs->map[hash] = pkg;
-        pkgs->num_pkgs++;
+        pkgs->count++;
       }
     }
   }
@@ -65,22 +66,27 @@ static void examine_subdir(
 
 static Package* make_package(
   char* dirname, char* abspath, char* subdir, int hash, Deps* deps) {
-  Package* pkg = calloc(1, sizeof(Package));
-  const char* package_json_path = path_append(abspath, "package.json");
-  FILE* package_json = fopen(package_json_path, "r");
+  FILE* package_json = fopen(path_join(abspath, "package.json"), "r");
   if (!package_json)
     return NULL;
+
+  Package* pkg = calloc(1, sizeof(Package));
+  pkg->is_app = false;
+  pkg->is_lib = true;
 
   char line[MAX_LINE];
   char* name = NULL;
   char* version = NULL;
   char* dep = NULL;
+
   for (;;) {
     if (fgets(line, MAX_LINE, package_json) == NULL)
       break;
 
-    if (strstr(line, "\"private\": true,"))
-      return NULL;
+    if (line_extract(line, "  \"private\": true", ',')) {
+      pkg->is_lib = false;
+      pkg->is_app = true;
+    }
 
     if (!name)
       name = line_extract(line, "  \"name\": \"", '"');
@@ -91,23 +97,24 @@ static Package* make_package(
     dep = line_extract(line, "    \"@friends-library/", '"');
     if (dep)
       deps->pkg_deps_names[hash][pkg->num_deps++] =
-        join_str("@friends-library", "/", dep);
+        str_join("@friends-library/", dep);
   }
 
-  if (!name || !version)
-    ABORT("required info missing from package.json");
+  if (!name)
+    ABORT("name not found for pkg at path `%s`", abspath);
 
   pkg->hash = hash;
   pkg->name = name;
-  pkg->version = version;
+  pkg->version = version ? version : strdup("<none>");
   pkg->abspath = abspath;
-  pkg->relpath = path_append(subdir, dirname);
+  pkg->relpath = path_join(subdir, dirname);
   pkg->deps = calloc(pkg->num_deps, sizeof(Package*));
   return pkg;
 }
 
 void print_package(Package* pkg) {
   printf("\nPKG: `%s`\n", pkg->name);
+  printf("  -> type: %s\n", pkg->is_lib ? "LIB" : "APP");
   printf("  -> version: %s\n", pkg->version);
   printf("  -> abspath: %s\n", pkg->abspath);
   printf("  -> relpath: %s\n", pkg->relpath);
@@ -120,8 +127,8 @@ void print_package(Package* pkg) {
 }
 
 void print_packages(Packages* pkgs) {
-  printf("Number of packages: %d\n", pkgs->num_pkgs);
-  for (int i = 0; i < pkgs->num_pkgs; i++) {
+  printf("Number of packages: %d\n", pkgs->count);
+  for (int i = 0; i < pkgs->count; i++) {
     print_package(pkgs->map[i]);
   }
 }
@@ -131,9 +138,4 @@ static bool is_dot_path(const char* path) {
     return true;
   }
   return strlen(path) == 2 && strncmp(path, "..", 2) == 0;
-}
-
-static bool is_dir(const char* path) {
-  struct stat inode;
-  return stat(path, &inode) == 0 && S_ISDIR(inode.st_mode);
 }
