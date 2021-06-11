@@ -11,6 +11,7 @@
 
 typedef struct flags_t {
   bool print;
+  bool cwd_only;
 } flags_t;
 
 flags_t parse_argv(int argc, char** argv);
@@ -28,7 +29,10 @@ int main(int argc, char** argv) {
   }
 
   for (int i = 0; i < packages->count; i++) {
-    symlink_package(packages->map[i]);
+    pkg_t* pkg = packages->map[i];
+    if (!flags.cwd_only || str_is(pkg->abspath, cwd())) {
+      symlink_package(pkg);
+    }
   }
 
   exit(EXIT_SUCCESS);
@@ -65,8 +69,11 @@ void symlink_package(pkg_t* pkg) {
 flags_t parse_argv(int argc, char** argv) {
   flags_t flags = {0};
   for (int i = 1; i < argc; i++) {
-    if (str_is(argv[i], "--print") || str_is(argv[i], "-p")) {
+    char* arg = argv[i];
+    if (str_is(arg, "--print") || str_is(arg, "-p")) {
       flags.print = true;
+    } else if (str_is(arg, ".")) {
+      flags.cwd_only = true;
     }
   }
   return flags;
