@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "colors.h"
 #include "env.h"
@@ -47,6 +48,10 @@ void process_pkg(pkg_t* pkg, pkgs_t* pkgs, bool unlink) {
 
   if (pkg->num_deps == 0)
     return;
+
+  char* node_modules = path_join(pkg->abspath, "node_modules/@friends-library");
+  if (!is_dir(node_modules) && mkdir(node_modules, 0755))
+    ABORT("error creating missing dir `%s`", node_modules);
 
   printf(C_GREY "%symlinking deps for package: %s%s\n" C_RESET,
     unlink ? "Un-s" : "S", C_GREEN, pkg->name);
