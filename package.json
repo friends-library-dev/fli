@@ -1,0 +1,8 @@
+{
+  "name": "@friends-library/fli",
+  "version": "1.0.0",
+  "description": "A sorta replacement for `lerna link`, for the FLP multi-repo, written in C.",
+  "author": "Jared Henderson <jared@netrivet.com>",
+  "repository": "github:friends-library-dev/fli",
+  "license": "MIT"
+}
